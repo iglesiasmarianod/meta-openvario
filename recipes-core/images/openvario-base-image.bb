@@ -21,6 +21,12 @@ COMMON_WIFI_FIRMWARE_PACKAGES = " \
 
 IMAGE_INSTALL = " \
     packagegroup-base \
+    distro-feed-configs \
+    wget \    
+    autofs \
+    autofs-config \
+    nano \
+    openssh-sftp-server \
     ${COMMON_WIFI_FIRMWARE_PACKAGES} \
 "
 
