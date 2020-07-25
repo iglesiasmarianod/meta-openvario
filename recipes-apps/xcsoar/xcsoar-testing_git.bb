@@ -44,7 +44,7 @@ LC_LOCALE_PATH = "/usr/share/locale"
 SRCREV_pn-xcsoar-testing = "${AUTOREV}" 
 
 SRC_URI = " \
-	git://github.com/XCSoar/XCSoar.git;protocol=git;branch=master \
+	git://github.com/iglesiasmarianod/XCSoar.git;protocol=git;branch=VarioGauge \
 	file://0005-Adapted-toolchain-prefixes-for-cross-compile.patch \
 	file://0001-Adapted-Flags-for-compiler-and-linker-for-cross-comp.patch \
 	file://0001-Disable-warnings-as-errors.patch \
