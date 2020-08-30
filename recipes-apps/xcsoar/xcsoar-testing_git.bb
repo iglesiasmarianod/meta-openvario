@@ -44,13 +44,16 @@ LC_LOCALE_PATH = "/usr/share/locale"
 SRCREV_pn-xcsoar-testing = "${AUTOREV}" 
 
 SRC_URI = " \
-	git://github.com/iglesiasmarianod/XCSoar.git;protocol=git;branch=VarioGauge \
+	git://github.com/XCSoar/XCSoar.git;protocol=git;branch=master \
 	file://0005-Adapted-toolchain-prefixes-for-cross-compile.patch \
 	file://0001-Adapted-Flags-for-compiler-and-linker-for-cross-comp.patch \
 	file://0001-Disable-warnings-as-errors.patch \
 	file://0001_no_version_lua.patch \
 	file://0001-avoid-tail-cut.patch \
 	file://0007-Disable-touch-screen-auto-detection.patch \
+	file://0001-Added-External-Gauge-Driver.patch \
+	file://0002-Enable-Bug-Receive.patch \
+	file://0003-Changed-PutBallast-to-Fraction.patch \
 	file://ov-xcsoar.conf \
 "
 

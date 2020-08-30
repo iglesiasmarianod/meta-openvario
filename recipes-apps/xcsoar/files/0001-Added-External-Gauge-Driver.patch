@@ -1,0 +1,363 @@
+From 4c314b44f670bb2c2dae1e03bab9e3a558b9a77c Mon Sep 17 00:00:00 2001
+From: Mariano <iglesiasmarianod@gmail.com>
+Date: Fri, 29 May 2020 01:01:23 -0300
+Subject: [PATCH 1/3] Added External Gauge Driver
+
+---
+ build/driver.mk                      |   1 +
+ src/Device/Driver/OpenVarioGauge.cpp | 272 +++++++++++++++++++++++++++
+ src/Device/Driver/OpenVarioGauge.hpp |  30 +++
+ src/Device/Register.cpp              |   2 +
+ 4 files changed, 305 insertions(+)
+ create mode 100644 src/Device/Driver/OpenVarioGauge.cpp
+ create mode 100644 src/Device/Driver/OpenVarioGauge.hpp
+
+diff --git a/build/driver.mk b/build/driver.mk
+index d80a09dd39..9b50e7bf95 100644
+--- a/build/driver.mk
++++ b/build/driver.mk
+@@ -117,6 +117,7 @@ DRIVER_SOURCES = \
+ 	$(DRIVER_SRC_DIR)/Leonardo.cpp \
+ 	$(DRIVER_SRC_DIR)/NmeaOut.cpp \
+ 	$(DRIVER_SRC_DIR)/OpenVario.cpp \
++	$(DRIVER_SRC_DIR)/OpenVarioGauge.cpp \
+ 	$(DRIVER_SRC_DIR)/PosiGraph.cpp \
+ 	$(DRIVER_SRC_DIR)/XCOM760.cpp \
+ 	$(DRIVER_SRC_DIR)/ILEC.cpp \
+diff --git a/src/Device/Driver/OpenVarioGauge.cpp b/src/Device/Driver/OpenVarioGauge.cpp
+new file mode 100644
+index 0000000000..52ea9a77e9
+--- /dev/null
++++ b/src/Device/Driver/OpenVarioGauge.cpp
+@@ -0,0 +1,272 @@
++/*
++Copyright_License {
++
++  XCSoar Glide Computer - http://www.xcsoar.org/
++  Copyright (C) 2000-2016 The XCSoar Project
++  A detailed list of copyright holders can be found in the file "AUTHORS".
++
++  This program is free software; you can redistribute it and/or
++  modify it under the terms of the GNU General Public License
++  as published by the Free Software Foundation; either version 2
++  of the License, or (at your option) any later version.
++
++  This program is distributed in the hope that it will be useful,
++  but WITHOUT ANY WARRANTY; without even the implied warranty of
++  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++  GNU General Public License for more details.
++
++  You should have received a copy of the GNU General Public License
++  along with this program; if not, write to the Free Software
++  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
++}
++*/
++
++#include "Device/Driver/OpenVarioGauge.hpp"
++#include "Device/Driver.hpp"
++#include "Device/Port/Port.hpp"
++#include "Device/Util/NMEAWriter.hpp"
++#include "Operation/Operation.hpp"
++#include "NMEA/MoreData.hpp"
++#include "NMEA/Derived.hpp"
++#include "NMEA/Info.hpp"
++#include "NMEA/InputLine.hpp"
++#include "NMEA/Checksum.hpp"
++#include "Units/Units.hpp"
++
++#include "Dialogs/Device/DeviceListDialog.hpp"
++#include "Device/device.hpp"
++#include "Device/MultipleDevices.hpp"
++#include "Device/Descriptor.hpp"
++#include "Components.hpp"
++#include "Operation/PopupOperationEnvironment.hpp"
++
++void
++JRSendNMEAPort1(const TCHAR *misc)
++{
++  const unsigned i = 0;
++
++  if (misc != NULL && i < NUMDEV) {
++    PopupOperationEnvironment env;
++    (*devices)[i].WriteNMEA(misc, env);
++  }
++}
++
++
++/*
++$PJRC,<1>,<2>,<3>*hh<CR><LF>
++
++<1>  Mc Setting
++<2>  Ballast Setting %
++<3>  Bug Setting %
++<4>  Volume Setting 0 No change, 1 Volume Up, 2 Volume Down
++*/
++
++static bool
++PJRC(NMEAInputLine &line, NMEAInfo &info)
++{
++  double i;
++  char buffer[30];
++
++  if (line.ReadChecked(i))
++  {
++    info.settings.ProvideMacCready(i,info.clock);
++    sprintf(buffer,"POV,C,MC,%0.2f", i);
++    JRSendNMEAPort1(buffer);
++  }
++
++  if (line.ReadChecked(i))
++    info.settings.ProvideBallastOverload(i, info.clock);
++
++
++  if (line.ReadChecked(i))
++     info.settings.ProvideQNH(AtmosphericPressure::HectoPascal(i), info.clock);
++
++  int VolumeComand;
++
++  if (line.ReadChecked(VolumeComand))
++  {
++
++    if(VolumeComand==1)
++      JRSendNMEAPort1("POV,C,VU");
++
++    if(VolumeComand==2)
++      JRSendNMEAPort1("POV,C,VD");
++  }
++
++
++  return true;
++}
++
++
++/*
++$PJRD,<1>,<2>,<3>*hh<CR><LF>
++
++<1>  30s Thermal Average
++<2>  Calculated STF
++<3>  IAS
++*/
++static bool
++FormatPJRD(char *buffer, size_t buffer_size, const double &average,
++           const double &STF, const double &IAS)
++{
++
++    snprintf(buffer, buffer_size,
++           "PJRD,%+4.1f,%.2f,%.2f",
++           average,STF,IAS);
++
++  return true;
++}
++
++/*
++$PJRG,E,<1>,H,<2>*hh<CR><LF>
++
++<1>  Vario_Brutto
++<2>  Navigation Altitude
++
++*/
++static bool
++FormatPJRG(char *buffer, size_t buffer_size, const double &vario,const double &nav_altitude)
++{
++
++    snprintf(buffer, buffer_size,
++           "PJRG,E,%+4.1f,H,%0.0f",
++           vario,nav_altitude);
++
++  return true;
++}
++
++class OpenVarioGauge final : public AbstractDevice {
++  Port &port;
++
++public:
++  OpenVarioGauge(Port &_port):port(_port) {}
++
++  /* virtual methods from class Device */
++
++  void OnSensorUpdate(const MoreData &basic) override;
++
++  void OnCalculatedUpdate(const MoreData &basic, const DerivedInfo &calculated) override;
++
++  bool PutMacCready(double mc, OperationEnvironment &env) override;
++
++  bool PutBallast(double fraction, double overload,
++                    OperationEnvironment &env) override;
++
++  bool PutQNH(const AtmosphericPressure &pres,
++                         OperationEnvironment &env) override;
++
++  bool PutBugs(double bugs, OperationEnvironment &env) override;
++
++  bool ParseNMEA(const char *String, struct NMEAInfo &info) override;
++
++};
++
++
++void
++OpenVarioGauge::OnSensorUpdate(const MoreData &basic)
++{
++  NullOperationEnvironment env;
++  char buffer[100];
++
++    const double vario=basic.brutto_vario;
++    const double nav_altitude = basic.nav_altitude;
++    if (FormatPJRG(buffer, sizeof(buffer), vario,nav_altitude))
++    PortWriteNMEA(port, buffer, env);
++
++}
++
++
++void
++OpenVarioGauge::OnCalculatedUpdate(const MoreData &basic,
++                                  const DerivedInfo &calculated)
++{
++  NullOperationEnvironment env;
++  char buffer[100];
++
++    //const OneClimbInfo &data=calculated.current_thermal;
++    //const double average = data.lift_rate;
++    const double average = calculated.average;
++    const double STF = calculated.V_stf;
++    //const double IAS = basic.true_airspeed;
++    const double IAS = basic.indicated_airspeed;
++
++    if (FormatPJRD(buffer, sizeof(buffer), average, STF, IAS))
++    PortWriteNMEA(port, buffer, env);
++
++}
++
++bool
++OpenVarioGauge::PutMacCready(double mc, OperationEnvironment &env)
++{
++  if (!EnableNMEA(env))
++    return false;
++
++  char buffer[30];
++  sprintf(buffer,"POVG,C,MC,%0.2f", (double)mc);
++  return PortWriteNMEA(port, buffer, env);
++}
++
++bool
++OpenVarioGauge::PutBallast(double fraction, double overload,
++                           OperationEnvironment &env)
++{
++  if (!EnableNMEA(env))
++    return false;
++
++  char buffer[30];
++  sprintf(buffer,"POVG,C,BA,%3f", overload);
++  return PortWriteNMEA(port, buffer, env);
++}
++
++bool
++OpenVarioGauge::PutQNH(const AtmosphericPressure &pres,
++                       OperationEnvironment &env)
++{
++  if (!EnableNMEA(env))
++      return false;
++
++    char buffer[30];
++    double Pressure=pres.GetHectoPascal();
++    sprintf(buffer,"POVG,C,QNH,%4.2f", Pressure);
++    return PortWriteNMEA(port, buffer, env);
++}
++
++bool
++OpenVarioGauge::PutBugs(double bugs, OperationEnvironment &env)
++{
++  if (!EnableNMEA(env))
++        return false;
++
++      char buffer[30];
++      sprintf(buffer,"POVG,C,BU,%4.2f", bugs);
++      return PortWriteNMEA(port, buffer, env);
++}
++
++bool
++OpenVarioGauge::ParseNMEA(const char *String, struct NMEAInfo &info)
++{
++  if (!VerifyNMEAChecksum(String))
++      return false;
++  NMEAInputLine line(String);
++  char type[16];
++  line.Read(type, 16);
++
++  if (StringIsEqual(type, "$PJRC"))
++    return PJRC(line, info);
++
++
++  return true;
++}
++
++static Device *
++OpenVarioGaugeCreateOnPort(const DeviceConfig &config, Port &com_port)
++{
++  return new OpenVarioGauge(com_port);
++}
++
++const struct DeviceRegister open_vario_gauge_driver = {
++  _T("variogauge"),
++  _T("OpenVario Gauge"),
++  DeviceRegister::NO_TIMEOUT,
++  OpenVarioGaugeCreateOnPort,
++};
+diff --git a/src/Device/Driver/OpenVarioGauge.hpp b/src/Device/Driver/OpenVarioGauge.hpp
+new file mode 100644
+index 0000000000..37ab1a46bf
+--- /dev/null
++++ b/src/Device/Driver/OpenVarioGauge.hpp
+@@ -0,0 +1,30 @@
++/*
++Copyright_License {
++
++  XCSoar Glide Computer - http://www.xcsoar.org/
++  Copyright (C) 2000-2016 The XCSoar Project
++  A detailed list of copyright holders can be found in the file "AUTHORS".
++
++  This program is free software; you can redistribute it and/or
++  modify it under the terms of the GNU General Public License
++  as published by the Free Software Foundation; either version 2
++  of the License, or (at your option) any later version.
++
++  This program is distributed in the hope that it will be useful,
++  but WITHOUT ANY WARRANTY; without even the implied warranty of
++  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++  GNU General Public License for more details.
++
++  You should have received a copy of the GNU General Public License
++  along with this program; if not, write to the Free Software
++  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
++}
++*/
++
++#ifndef XCSOAR_DEVICE_DRIVER_OPENVARIOGAUGE_HPP
++#define XCSOAR_DEVICE_DRIVER_OPENVARIOGAUGE_HPP
++
++extern const struct DeviceRegister open_vario_gauge_driver;
++
++#endif
++
+diff --git a/src/Device/Register.cpp b/src/Device/Register.cpp
+index 374a2fbb89..ddee609a50 100644
+--- a/src/Device/Register.cpp
++++ b/src/Device/Register.cpp
+@@ -54,6 +54,7 @@ Copyright_License {
+ #include "Device/Driver/LevilAHRS_G.hpp"
+ #include "Device/Driver/BlueFlyVario.hpp"
+ #include "Device/Driver/OpenVario.hpp"
++#include "Device/Driver/OpenVarioGauge.hpp"
+ #include "Device/Driver/Vaulter.hpp"
+ #include "Device/Driver/ATR833.hpp"
+ #include "Device/Driver/XCTracer.hpp"
+@@ -95,6 +96,7 @@ static const struct DeviceRegister *const driver_list[] = {
+   &bluefly_driver,
+   &cai_lnav_driver,
+   &open_vario_driver,
++  &open_vario_gauge_driver,
+   &vaulter_driver,
+   &krt2_driver,
+   &atr833_driver,
+-- 
+2.20.1
+

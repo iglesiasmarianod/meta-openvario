@@ -17,6 +17,7 @@ S = "${WORKDIR}/git"
 inherit systemd
 
 SRC_URI = "git://github.com/Openvario/sensord.git;protocol=git;tag=${PV} \
+            file://0001-Changed-voltage-sensor-constant.patch \
             file://sensord.service \
 "
 

@@ -1,0 +1,23 @@
+From a3d8c329574c3eaf025bead0ff4884d396d17f8f Mon Sep 17 00:00:00 2001
+From: Mariano <mariano@debian.mariano>
+Date: Sat, 25 Jul 2020 20:45:33 -0300
+Subject: [PATCH] Changed voltage sensor constant
+
+---
+ sensord.conf | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/sensord.conf b/sensord.conf
+index e98e0ee..ce1802c 100755
+--- a/sensord.conf
++++ b/sensord.conf
+@@ -27,4 +27,4 @@ vario_config 0.3
+ 
+ #Voltage Sensor parameter
+ #format:  voltage_config [division_factor]
+-voltage_config 736.
+\ No newline at end of file
++voltage_config 1200.
+-- 
+2.20.1
+
