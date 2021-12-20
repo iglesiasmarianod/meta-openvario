@@ -1,0 +1,41 @@
+From dd64edc0481851bc9dd9bf5bf4696bef7adae7bc Mon Sep 17 00:00:00 2001
+From: Mariano <iglesiasmarianod@gmail.com>
+Date: Thu, 4 Jun 2020 18:22:09 -0300
+Subject: [PATCH 2/3] Enable Bug Receive
+
+---
+ src/Device/Driver/OpenVarioGauge.cpp | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/src/Device/Driver/OpenVarioGauge.cpp b/src/Device/Driver/OpenVarioGauge.cpp
+index 52ea9a77e9..4aae0a5fb3 100644
+--- a/src/Device/Driver/OpenVarioGauge.cpp
++++ b/src/Device/Driver/OpenVarioGauge.cpp
+@@ -53,10 +53,10 @@ JRSendNMEAPort1(const TCHAR *misc)
+ 
+ 
+ /*
+-$PJRC,<1>,<2>,<3>*hh<CR><LF>
++$PJRC,<1>,<2>,<3>,<4>*hh<CR><LF>
+ 
+ <1>  Mc Setting
+-<2>  Ballast Setting %
++<2>  Ballast Setting % of max ballast
+ <3>  Bug Setting %
+ <4>  Volume Setting 0 No change, 1 Volume Up, 2 Volume Down
+ */
+@@ -75,8 +75,10 @@ PJRC(NMEAInputLine &line, NMEAInfo &info)
+   }
+ 
+   if (line.ReadChecked(i))
+-    info.settings.ProvideBallastOverload(i, info.clock);
++    info.settings.ProvideBallastFraction(i, info.clock);
+ 
++  if (line.ReadChecked(i))
++    info.settings.ProvideBugs(i, info.clock);
+ 
+   if (line.ReadChecked(i))
+      info.settings.ProvideQNH(AtmosphericPressure::HectoPascal(i), info.clock);
+-- 
+2.20.1
+

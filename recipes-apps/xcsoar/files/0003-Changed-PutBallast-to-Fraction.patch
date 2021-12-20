@@ -1,0 +1,25 @@
+From c8e533ea043a76e16ffe72d630160b872cd31b8a Mon Sep 17 00:00:00 2001
+From: Mariano <iglesiasmarianod@gmail.com>
+Date: Fri, 5 Jun 2020 14:40:04 -0300
+Subject: [PATCH 3/3] Changed PutBallast to Fraction
+
+---
+ src/Device/Driver/OpenVarioGauge.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/Device/Driver/OpenVarioGauge.cpp b/src/Device/Driver/OpenVarioGauge.cpp
+index 4aae0a5fb3..90fca540c0 100644
+--- a/src/Device/Driver/OpenVarioGauge.cpp
++++ b/src/Device/Driver/OpenVarioGauge.cpp
+@@ -216,7 +216,7 @@ OpenVarioGauge::PutBallast(double fraction, double overload,
+     return false;
+ 
+   char buffer[30];
+-  sprintf(buffer,"POVG,C,BA,%3f", overload);
++  sprintf(buffer,"POVG,C,BA,%3f", fraction);
+   return PortWriteNMEA(port, buffer, env);
+ }
+ 
+-- 
+2.20.1
+

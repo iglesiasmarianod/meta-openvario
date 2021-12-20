@@ -52,7 +52,9 @@ SRC_URI = " \
 	file://0001_no_version_lua.patch \
 	file://0001-avoid-tail-cut.patch \
 	file://0007-Disable-touch-screen-auto-detection.patch \
-	file://0001-FreeVario.patch \
+	file://0001-Added-External-Gauge-Driver.patch \
+	file://0002-Enable-Bug-Receive.patch \
+	file://0003-Changed-PutBallast-to-Fraction.patch \
 	file://ov-xcsoar.conf \
 "
 
