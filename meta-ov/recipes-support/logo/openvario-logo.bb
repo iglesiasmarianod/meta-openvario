@@ -13,7 +13,7 @@ DEPENDS = " \
 
 RSVG_CONVERT = "rsvg-convert"
 CONVERT = "convert.im7"
-BACKGROUND_COLOR = "rgb(255,255,255)"
+BACKGROUND_COLOR = "rgb(0,0,0)"
 LOGO_FILE = "openvario-black.svg"
 FONT = "${RECIPE_SYSROOT}/${datadir}/fonts/truetype/DejaVuSans.ttf"
 BOOT_TEXT = "Starting..."
@@ -43,7 +43,7 @@ build_uboot_logos1() {
 		   -gravity Center \
 		   -draw "image over 0,$_LOGO_POSITION_PORTRAIT 0,0 '${B}/$_SIZE/landscape.png'" \
 		   -gravity South \
-		   -font "${FONT}" -pointsize $_FONTSIZE -draw "text 0,$_TEXT_POSITION '$_TEXT'" \
+		   -font "${FONT}" -pointsize $_FONTSIZE -fill white -draw "text 0,$_TEXT_POSITION '$_TEXT'" \
 		   -alpha off \
 		   -type Palette \
 		   ${B}/$_SIZE/"$_PREFIX"_0.bmp
@@ -53,7 +53,7 @@ build_uboot_logos1() {
 		   -gravity Center \
 		   -draw "image over 0,$_LOGO_POSITION_LANDSCAPE 0,0 '${B}/$_SIZE/portrait.png'" \
 		   -gravity South \
-		   -font "${FONT}" -pointsize $_FONTSIZE -draw "text 0,$_TEXT_POSITION '$_TEXT'" \
+		   -font "${FONT}" -pointsize $_FONTSIZE -fill white -draw "text 0,$_TEXT_POSITION '$_TEXT'" \
 		   -alpha off \
 		   -type Palette \
 		   ${B}/$_SIZE/"$_PREFIX"_portrait.bmp
